@@ -58,7 +58,6 @@ export class ConsoleAppender extends AbstractAppender {
                 return;
         }
 
-        consoleMethod(this.formatter.format(log));
+        consoleMethod.call(console, this.formatter.format(log));
     }
 }
-console.log("Class OK");
