@@ -57,5 +57,3 @@ export class ConsoleAppender extends AbstractAppender {
         consoleMethod.call(console, this.formatter.format(log));
     }
 }
-
-LoggerFactory.registerAppender(ConsoleAppender.NAME, ConsoleAppender);

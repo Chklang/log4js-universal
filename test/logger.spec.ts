@@ -42,22 +42,25 @@ export class ConsoleAppenderTest extends ConsoleAppender {
     }
 }
 describe("Check global logger", () => {
-    LoggerFactory.registerAppender("CONSOLE_TEST", ConsoleAppenderTest);
-    LoggerFactory.INSTANCE.configuration = {
-        appenders: {
-            CONSOLE: {
-                className: "CONSOLE_TEST",
-                level: ELevel.DEBUG,
-                options: {}
+
+    beforeEach(() => {
+        LoggerFactory.registerAppender("CONSOLE_TEST", ConsoleAppenderTest);
+        LoggerFactory.INSTANCE.configuration = {
+            appenders: {
+                CONSOLE: {
+                    className: "CONSOLE_TEST",
+                    level: ELevel.DEBUG,
+                    options: {}
+                }
+            },
+            categories: {
+                "*": {
+                    appenders: ["CONSOLE"],
+                    level: ELevel.DEBUG
+                }
             }
-        },
-        categories: {
-            "*": {
-                appenders: ["CONSOLE"],
-                level: ELevel.DEBUG
-            }
-        }
-    };
+        };
+    });
     const LOGGER: ILogger = LoggerFactory.getLogger("logger.tests.full");
 
     const testLevel = (level: ELevel) => {

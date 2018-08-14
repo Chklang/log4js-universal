@@ -16,6 +16,7 @@ export class LoggerFactory implements IGlobalContext {
         if (!globalObject) {
             globalObject = new LoggerFactory();
             globalObject.init();
+            GlobalContext.set("LOGGERS_FACTORY", globalObject);
         }
         return globalObject;
     }
@@ -32,7 +33,7 @@ export class LoggerFactory implements IGlobalContext {
     }
 
     public static registerAppender(name: string, appender: { new(name: string): IAppender }): void {
-        LoggerFactory.INSTANCE._appenders[name] = appender;
+        LoggerFactory.INSTANCE._registerAppender(name, appender);
     }
 
     private _configuration: IConfiguration = null;
@@ -41,22 +42,23 @@ export class LoggerFactory implements IGlobalContext {
     private _appendersInstances: { [key: string]: IAppender } = {};
     private _mdc: { [key: string]: string } = {};
     private _flash: { [key: string]: string } = {};
+    private _missingAppenders: { [key: string]: boolean } = {};
 
     private constructor() {
     }
 
     public get configuration(): IConfiguration {
+        if (this._missingAppenders !== null) {
+            return null;
+        }
         return this._configuration;
     }
 
     public set configuration(configuration: IConfiguration) {
         this._configuration = configuration;
-        this._loggers.forEach((loggerInstance: Logger) => {
-            loggerInstance.reCalculateConfiguration(configuration);
-        });
-        for (const appenderName in this._appendersInstances) {
-            this._appendersInstances[appenderName].reCalculateConfiguration(configuration);
-        }
+
+        this.checkIfMissingAppender();
+        this.recalculateConfs();
     }
 
     public createAppender(name: string, appenderClass: string): IAppender {
@@ -65,7 +67,7 @@ export class LoggerFactory implements IGlobalContext {
         }
         const appenderInstance: IAppender = new (this._appenders[appenderClass])(name);
         this._appendersInstances[name] = appenderInstance;
-        appenderInstance.reCalculateConfiguration(LoggerFactory.INSTANCE._configuration);
+
         return appenderInstance;
     }
 
@@ -90,8 +92,8 @@ export class LoggerFactory implements IGlobalContext {
     public clearFlash(): void {
         this._flash = {};
     }
-    public getContext(): {[key: string]: string} {
-        const result: {[key: string]: string} = {};
+    public getContext(): { [key: string]: string } {
+        const result: { [key: string]: string } = {};
         for (const key in this._mdc) {
             result[key] = this._mdc[key];
         }
@@ -100,14 +102,49 @@ export class LoggerFactory implements IGlobalContext {
         }
         return result;
     }
-    public getContextAndClearFlash(): {[key: string]: string} {
-        const context: {[key: string]: string} =  this.getContext();
+    public getContextAndClearFlash(): { [key: string]: string } {
+        const context: { [key: string]: string } = this.getContext();
         this.clearFlash();
         return context;
     }
 
     private init(): void {
         this.loadConfiguration();
+    }
+
+    private checkIfMissingAppender(): void {
+        let hasMissingAppenders: boolean = false;
+        this._missingAppenders = {};
+        for (const appenderName in this._configuration.appenders) {
+            if (!this._appenders[this._configuration.appenders[appenderName].className]) {
+                this._missingAppenders[this._configuration.appenders[appenderName].className] = true;
+                hasMissingAppenders = true;
+            }
+        }
+        if (!hasMissingAppenders) {
+            this._missingAppenders = null;
+        }
+    }
+
+    private recalculateConfs(): void {
+        if (this._missingAppenders !== null) {
+            return;
+        }
+
+        this._loggers.forEach((loggerInstance: Logger) => {
+            loggerInstance.reCalculateConfiguration(this._configuration);
+        });
+
+        for (const appenderName in this._appendersInstances) {
+            this._appendersInstances[appenderName].reCalculateConfiguration(this._configuration);
+        }
+    }
+
+    private _registerAppender(name: string, appender: { new(name: string): IAppender }): void {
+        this._appenders[name] = appender;
+
+        this.checkIfMissingAppender();
+        this.recalculateConfs();
     }
 
     private loadConfiguration(): void {
@@ -136,5 +173,8 @@ export class LoggerFactory implements IGlobalContext {
         if (!this._configuration) {
             this._configuration = DEFAULT_CONFIGURATION;
         }
+
+        this.checkIfMissingAppender();
+        this.recalculateConfs();
     }
 }
