@@ -1,36 +1,30 @@
 import { Logger } from "./logger";
-import { IConfiguration, IAppendersConfiguration } from "./i-configuration";
-import { ConsoleAppender } from "./appenders/console-appender";
-import { ELevel } from "./e-level";
+import { IConfiguration } from "./i-configuration";
 import { ILogger } from "./i-logger";
 import { IAppender } from "./i-appender";
+import { IGlobalContext } from "./i-global-context";
+import { DEFAULT_CONFIGURATION } from "./default-configuration";
+import { GlobalContext } from "./global-context";
 
-declare var global: any;
-declare var window: any;
 declare var process: any;
 
-export class LoggerFactory {
+export class LoggerFactory implements IGlobalContext {
 
     public static get INSTANCE(): LoggerFactory {
-        const globalObject = LoggerFactory.getGlobalObject();
+        let globalObject: LoggerFactory = GlobalContext.get("LOGGERS_FACTORY");
 
-        // tslint:disable-next-line:no-string-literal
-        if (!globalObject["LOGGERS_FACTORY"]) {
-            const loggerFactory: LoggerFactory = new LoggerFactory();
-            // tslint:disable-next-line:no-string-literal
-            globalObject["LOGGERS_FACTORY"] = loggerFactory;
-            // tslint:disable-next-line:no-string-literal
-            loggerFactory.init();
+        if (!globalObject) {
+            globalObject = new LoggerFactory();
+            globalObject.init();
         }
-        // tslint:disable-next-line:no-string-literal
-        return globalObject["LOGGERS_FACTORY"];
+        return globalObject;
     }
 
     public static getLogger(packageName: string): ILogger {
         if (LoggerFactory.INSTANCE._loggers["_logger_" + packageName]) {
             return LoggerFactory.INSTANCE._loggers["_logger_" + packageName];
         }
-        const logger: Logger = new Logger(packageName);
+        const logger: Logger = new Logger(packageName, LoggerFactory.INSTANCE);
         logger.reCalculateConfiguration(LoggerFactory.INSTANCE._configuration);
         LoggerFactory.INSTANCE._loggers.push(logger);
         LoggerFactory.INSTANCE._loggers["_" + packageName] = logger;
@@ -39,17 +33,6 @@ export class LoggerFactory {
 
     public static registerAppender(name: string, appender: { new(name: string): IAppender }): void {
         LoggerFactory.INSTANCE._appenders[name] = appender;
-    }
-
-    private static getGlobalObject() {
-        try {
-            return global;
-            // tslint:disable-next-line:no-empty
-        } catch (e) { }
-        try {
-            return window;
-            // tslint:disable-next-line:no-empty
-        } catch (e) { }
     }
 
     private _configuration: IConfiguration = null;
@@ -124,25 +107,22 @@ export class LoggerFactory {
     }
 
     private init(): void {
-        // Load appenders
-        ConsoleAppender.registerIt();
-
         this.loadConfiguration();
     }
 
     private loadConfiguration(): void {
-        const globalObject = LoggerFactory.getGlobalObject();
+        const globalConfiguration: IConfiguration = GlobalContext.get("LOGGER_CONFIGURATION");
 
         // Get from global context
         // tslint:disable-next-line:no-string-literal
-        if (globalObject["LOGGER_CONFIGURATION"]) {
+        if (globalConfiguration) {
             // tslint:disable-next-line:no-string-literal
-            this._configuration = globalObject["LOGGER_CONFIGURATION"];
+            this._configuration = globalConfiguration;
         }
 
         // Get from environment variables
         if (!this._configuration) {
-            try {
+            try {// Ignore if process isn't defined
                 // tslint:disable-next-line:no-string-literal
                 if (process.env["LOGGER_CONFIGURATION"]) {
                     // tslint:disable-next-line:no-string-literal
@@ -154,20 +134,7 @@ export class LoggerFactory {
 
         // Generate default configuration
         if (!this._configuration) {
-            const appenders: IAppendersConfiguration = {};
-            appenders.CONSOLE = {
-                className: ConsoleAppender.NAME,
-                level: ELevel.INFO
-            };
-            this._configuration = {
-                appenders: appenders,
-                categories: {
-                    "*": {
-                        level: ELevel.INFO,
-                        appenders: ["CONSOLE"]
-                    }
-                }
-            };
+            this._configuration = DEFAULT_CONFIGURATION;
         }
     }
 }

@@ -1,15 +1,15 @@
 import { ELevel } from "./e-level";
-import { LoggerFactory } from "./logger-factory";
 import { IConfiguration } from "./i-configuration";
 import { LoggerHelper } from "./logger-helper";
 import { IAppender } from "./i-appender";
 import { ILogger } from "./i-logger";
+import { IGlobalContext } from "./i-global-context";
 
 export class Logger implements ILogger {
     private levelMax: ELevel = null;
     private levelByAppenders: Array<{appender: IAppender, level: ELevel}> = [];
 
-    public constructor(private packageName: string) {
+    public constructor(private packageName: string, private globalContext: IGlobalContext) {
 
     }
 
@@ -71,7 +71,7 @@ export class Logger implements ILogger {
 
             for (const appenderName in levelByAppendersFound) {
                 const appenderClass: string = configuration.appenders[appenderName].className;
-                const appenderInstance: IAppender = LoggerFactory.INSTANCE.createAppender(appenderName, appenderClass);
+                const appenderInstance: IAppender = this.globalContext.createAppender(appenderName, appenderClass);
                 if (!appenderInstance) {
                     // Ignore
                     continue;
@@ -95,7 +95,7 @@ export class Logger implements ILogger {
                 appender.appender.append({
                     level: level,
                     args: args,
-                    context: LoggerFactory.INSTANCE.getContextAndClearFlash(),
+                    context: this.globalContext.getContextAndClearFlash(),
                     message: message,
                     package: this.packageName,
                     time: Date.now()

@@ -1,19 +1,15 @@
 import { ILogEntry } from "../i-log-entry";
 import { ELevel } from "../e-level";
-import { Logger } from "../logger";
 import { AbstractAppender } from "./abstract-appender";
 import { LoggerFactory } from "../logger-factory";
 import { IConfiguration, IAppenderConfiguration } from "../i-configuration";
 import { TextFormatter } from "../text-formatter";
 
 export class ConsoleAppender extends AbstractAppender {
-    public static registerIt(): void {
-        LoggerFactory.registerAppender(ConsoleAppender.NAME, ConsoleAppender);
-    }
     public static get NAME(): string {
         return "ConsoleAppender";
     }
-    private static LOGGER = new Logger("loggers.appenders.ConsoleAppender");
+    private static LOGGER = LoggerFactory.getLogger("loggers.appenders.ConsoleAppender");
 
     private formatter: TextFormatter = null;
 
@@ -61,3 +57,5 @@ export class ConsoleAppender extends AbstractAppender {
         consoleMethod.call(console, this.formatter.format(log));
     }
 }
+
+LoggerFactory.registerAppender(ConsoleAppender.NAME, ConsoleAppender);
