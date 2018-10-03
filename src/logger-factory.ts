@@ -5,6 +5,7 @@ import { IAppender } from "./i-appender";
 import { IGlobalContext } from "./i-global-context";
 import { DEFAULT_CONFIGURATION } from "./default-configuration";
 import { GlobalContext } from "./global-context";
+import { ELevel } from "./e-level";
 
 declare var process: any;
 
@@ -67,6 +68,7 @@ export class LoggerFactory implements IGlobalContext {
         }
         const appenderInstance: IAppender = new (this._appenders[appenderClass])(name);
         this._appendersInstances[name] = appenderInstance;
+        appenderInstance.reCalculateConfiguration(this._configuration);
 
         return appenderInstance;
     }
@@ -172,6 +174,59 @@ export class LoggerFactory implements IGlobalContext {
         // Generate default configuration
         if (!this._configuration) {
             this._configuration = DEFAULT_CONFIGURATION;
+        }
+
+        // Override conf with arguments
+        try {
+            const regexpAppenders = /^--logger.conf.appenders.([^.]+).level=(.+)$/;
+            const regexpCategories = /^--logger.conf.categories.(.+)\.([^=.]+)=(.+)$/;
+            process.argv.forEach((arg: string) => {
+                if (!/^--logger\.conf/.test(arg)) {
+                    return;
+                }
+                if (regexpAppenders.test(arg)) {
+                    const [full, appenderName, level] = regexpAppenders.exec(arg);
+                    if (!this._configuration.appenders[appenderName]) {
+                        // Appender not found, ignore
+                        return;
+                    }
+                    switch (level) {
+                        case ELevel.DEBUG:
+                        case ELevel.DISABLED:
+                        case ELevel.ERROR:
+                        case ELevel.INFO:
+                        case ELevel.WARN:
+                            this._configuration.appenders[appenderName].level = level as ELevel;
+                            break;
+                    }
+                } else if (regexpCategories.test(arg)) {
+                    const [full, categoryName, field, value] = regexpCategories.exec(arg);
+                    if (!this._configuration.categories[categoryName]) {
+                        this._configuration.categories[categoryName] = {
+                            appenders: ["CONSOLE"],
+                            level: ELevel.DEBUG
+                        };
+                    }
+                    switch (field) {
+                        case "level":
+                            switch (value) {
+                                case ELevel.DEBUG:
+                                case ELevel.DISABLED:
+                                case ELevel.ERROR:
+                                case ELevel.INFO:
+                                case ELevel.WARN:
+                                    this._configuration.categories[categoryName].level = value as ELevel;
+                                    break;
+                            }
+                            break;
+                        case "appenders":
+                            this._configuration.categories[categoryName].appenders = value.split(",");
+                            break;
+                    }
+                }
+            });
+        } catch (e) {
+            // Ignore
         }
 
         this.checkIfMissingAppender();

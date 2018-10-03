@@ -4,7 +4,7 @@ import { ELevel } from "./e-level";
 const appenders: IAppendersConfiguration = {};
 appenders.CONSOLE = {
     className: "ConsoleAppender",
-    level: ELevel.INFO
+    level: ELevel.DEBUG
 };
 export const DEFAULT_CONFIGURATION: IConfiguration = {
     appenders: appenders,

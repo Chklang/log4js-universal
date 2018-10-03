@@ -26,7 +26,7 @@ export class ConsoleAppender extends AbstractAppender {
         if (confAppender.options && confAppender.options.formatter) {
             formatter = confAppender.options.formatter;
         } else {
-            formatter = "%d{yyyy/MM/dd HH:mm:ss.SSS} [%M] %p - %m%n";
+            formatter = "%d{yyyy/MM/dd HH:mm:ss.SSS} [%M] %p - %m";
         }
         this.formatter = TextFormatter.generateFormatter(formatter);
     }

@@ -54,7 +54,7 @@ export class Logger implements ILogger {
                 continue;
             }
             if (precisionMaxLevelFound === null || precisionMaxLevelFound < currentPrecision) {
-                if (levelMaxFound === null || LoggerHelper.levelPass(levelMaxFound, configuration.categories[key].level)) {
+                if (levelMaxFound === null || LoggerHelper.levelPass(configuration.categories[key].level, levelMaxFound)) {
                     levelMaxFound = configuration.categories[key].level;
                     precisionMaxLevelFound = currentPrecision;
                 }
@@ -63,24 +63,24 @@ export class Logger implements ILogger {
                 if (!levelByAppendersFound[appenderName]) {
                     levelByAppendersFound[appenderName] = configuration.categories[key].level;
                     precisionLevelByAppendersFound[appenderName] = currentPrecision;
-                } else if (precisionLevelByAppendersFound[appenderName] < currentPrecision && LoggerHelper.levelPass(levelByAppendersFound[appenderName], configuration.categories[key].level)) {
+                } else if (precisionLevelByAppendersFound[appenderName] < currentPrecision && LoggerHelper.levelPass(configuration.categories[key].level, levelByAppendersFound[appenderName])) {
                     levelByAppendersFound[appenderName] = configuration.categories[key].level;
                     precisionLevelByAppendersFound[appenderName] = currentPrecision;
                 }
             });
+        }
 
-            for (const appenderName in levelByAppendersFound) {
-                const appenderClass: string = configuration.appenders[appenderName].className;
-                const appenderInstance: IAppender = this.globalContext.createAppender(appenderName, appenderClass);
-                if (!appenderInstance) {
-                    // Ignore
-                    continue;
-                }
-                this.levelByAppenders.push({
-                    appender: appenderInstance,
-                    level: levelByAppendersFound[appenderName]
-                });
+        for (const appenderName in levelByAppendersFound) {
+            const appenderClass: string = configuration.appenders[appenderName].className;
+            const appenderInstance: IAppender = this.globalContext.createAppender(appenderName, appenderClass);
+            if (!appenderInstance) {
+                // Ignore
+                continue;
             }
+            this.levelByAppenders.push({
+                appender: appenderInstance,
+                level: levelByAppendersFound[appenderName]
+            });
         }
         this.levelMax = levelMaxFound || ELevel.DISABLED;
     }
