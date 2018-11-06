@@ -15,6 +15,17 @@ export abstract class AbstractAppender implements IAppender {
             // Ignore log
             return;
         }
+        // Calculate args values
+        log.args = log.args.map((arg, index) => {
+            if (arg instanceof Function) {
+                try {
+                    return arg();
+                } catch (e) {
+                    return "<CANNOT CALL LOG ARGUMENT " + index + " : " + e + ">";
+                }
+            }
+            return arg;
+        });
         this.write(log);
     }
 

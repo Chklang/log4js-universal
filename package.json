@@ -1,12 +1,12 @@
 {
   "name": "@log4js-universal/logger",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "",
   "main": "lib/index.js",
   "typings": "./lib/index",
   "scripts": {
     "build": "tsc --p tsconfig.build.json",
-    "dist": "npm run build && copyfiles package.json README.md dist/",
+    "dist": "npm run test && npm run build && copyfiles package.json README.md dist/",
     "dist:dev": "npm run dist && cd dist && npm link",
     "test": "node node_modules/karma/bin/karma start --single-run",
     "lint": "tslint -c tslint.json \"src/**/*.ts\""

@@ -11,7 +11,10 @@ export class ConsoleAppender extends AbstractAppender {
     }
     private static LOGGER = LoggerFactory.getLogger("loggers.appenders.ConsoleAppender");
 
+    public logMethod: (...args: any[]) => void = null;
+
     private formatter: TextFormatter = null;
+    private stringify: boolean = false;
 
     public reCalculateConfiguration(configuration: IConfiguration): void {
         super.reCalculateConfiguration(configuration);
@@ -28,32 +31,50 @@ export class ConsoleAppender extends AbstractAppender {
         } else {
             formatter = "%d{yyyy/MM/dd HH:mm:ss.SSS} [%M] %p - %m";
         }
+        if (confAppender.options && confAppender.options.stringify === true) {
+            this.stringify = true;
+        }
         this.formatter = TextFormatter.generateFormatter(formatter);
     }
     protected write(log: ILogEntry): void {
-        let consoleMethod: (message: string) => void = null;
-        switch (log.level) {
-            case ELevel.ERROR:
-                // tslint:disable-next-line:no-console
-                consoleMethod = console.error;
-                break;
-            case ELevel.WARN:
-                // tslint:disable-next-line:no-console
-                consoleMethod = console.warn;
-                break;
-            case ELevel.INFO:
-                // tslint:disable-next-line:no-console
-                consoleMethod = console.info;
-                break;
-            case ELevel.DEBUG:
-                // tslint:disable-next-line:no-console
-                consoleMethod = console.debug;
-                break;
-            default:
-                ConsoleAppender.LOGGER.error("Cannot write log %1, level %2 isn't implemented", log.message, log.level);
-                return;
+        let consoleMethod: (...args: any[]) => void = this.logMethod;
+        if (consoleMethod === null) {
+            switch (log.level) {
+                case ELevel.ERROR:
+                    // tslint:disable-next-line:no-console
+                    consoleMethod = console.error;
+                    break;
+                case ELevel.WARN:
+                    // tslint:disable-next-line:no-console
+                    consoleMethod = console.warn;
+                    break;
+                case ELevel.INFO:
+                    // tslint:disable-next-line:no-console
+                    consoleMethod = console.info;
+                    break;
+                case ELevel.DEBUG:
+                    // tslint:disable-next-line:no-console
+                    consoleMethod = console.debug;
+                    break;
+                default:
+                    ConsoleAppender.LOGGER.error("Cannot write log %1, level %2 isn't implemented", log.message, log.level);
+                    return;
+            }
         }
 
-        consoleMethod.call(console, this.formatter.format(log));
+        if (this.stringify) {
+            consoleMethod.call(console, this.formatter.format(log).map((e, index) => {
+                if (e instanceof Object) {
+                    try {
+                        return JSON.stringify(e);
+                    } catch (e) {
+                        return "<CANNOT STRINGIFY PARAM " + index + ">";
+                    }
+                }
+                return e;
+            }).join(""));
+        } else {
+            consoleMethod.apply(console, this.formatter.format(log));
+        }
     }
 }

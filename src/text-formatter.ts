@@ -2,7 +2,7 @@ import { ILogEntry } from "./i-log-entry";
 
 export class TextFormatter {
     public static generateFormatter(formatter: string): TextFormatter {
-        const functionsFormat: Array<(logEntry: ILogEntry) => string> = [];
+        const functionsFormat: Array<(logEntry: ILogEntry) => {mustExplode: boolean, content: any}> = [];
         let currentString: string = null;
         for (let i = 0; i < formatter.length; i++) {
             if (formatter[i] !== "%") {
@@ -15,7 +15,7 @@ export class TextFormatter {
             }
             i++;
             let symbol: string = "";
-            const regexpTypeProperty: RegExp = /^[a-zA-Z]$/;
+            const regexpTypeProperty: RegExp = /^[a-zA-Z0-9]$/;
             while (i < formatter.length && regexpTypeProperty.test(formatter[i])) {
                 symbol += formatter[i];
                 i++;
@@ -80,37 +80,37 @@ export class TextFormatter {
         return new TextFormatter(functionsFormat);
     }
 
-    private static addFormatterText(text: string): () => string {
+    private static addFormatterText(text: string): () => {mustExplode: boolean, content: any} {
         return () => {
-            return text;
+            return { mustExplode: false, content: text};
         };
     }
-    private static addFormatterLevel(): (logEntry: ILogEntry) => string {
+    private static addFormatterLevel(): (logEntry: ILogEntry) => {mustExplode: boolean, content: any} {
         return (logEntry: ILogEntry) => {
-            return logEntry.level;
+            return { mustExplode: false, content: logEntry.level};
         };
     }
-    private static addFormatterPackageName(): (logEntry: ILogEntry) => string {
+    private static addFormatterPackageName(): (logEntry: ILogEntry) => {mustExplode: boolean, content: any} {
         return (logEntry: ILogEntry) => {
-            return logEntry.package;
+            return { mustExplode: false, content: logEntry.package};
         };
     }
-    private static addFormatterMessage(): (logEntry: ILogEntry) => string {
+    private static addFormatterMessage(): (logEntry: ILogEntry) => {mustExplode: boolean, content: any[]} {
         return (logEntry: ILogEntry) => {
-            return TextFormatter.calculateMessage(logEntry.message, logEntry.args);
+            return { mustExplode: true, content: TextFormatter.calculateMessage(logEntry.message, logEntry.args)};
         };
     }
-    private static addFormatterBreakline(): () => string {
+    private static addFormatterBreakline(): () => {mustExplode: boolean, content: any} {
         return () => {
-            return "\r\n";
+            return { mustExplode: false, content: "\r\n"};
         };
     }
-    private static addFormatterMdc(mdcName: string): (logEntry: ILogEntry) => string {
+    private static addFormatterMdc(mdcName: string): (logEntry: ILogEntry) => {mustExplode: boolean, content: any} {
         return (logEntry: ILogEntry) => {
-            return logEntry.context[mdcName];
+            return { mustExplode: false, content: logEntry.context[mdcName] };
         };
     }
-    private static addFormatterDate(format: string): (logEntry: ILogEntry) => string {
+    private static addFormatterDate(format: string): (logEntry: ILogEntry) => {mustExplode: boolean, content: any} {
         const result: Array<(date: Date) => string | number> = [];
         let currentText: string = null;
         for (let i = 0; i < format.length; i++) {
@@ -218,7 +218,7 @@ export class TextFormatter {
             }
             if (formatterToAdd) {
                 if (currentText !== null) {
-                    result.push(TextFormatter.addFormatterText(currentText));
+                    result.push(TextFormatter.addFormatterDateText(currentText));
                     currentText = null;
                 }
                 result.push(formatterToAdd);
@@ -226,14 +226,16 @@ export class TextFormatter {
             }
         }
         if (currentText !== null) {
-            result.push(TextFormatter.addFormatterText(currentText));
+            result.push(TextFormatter.addFormatterDateText(currentText));
             currentText = null;
         }
         return (log: ILogEntry) => {
             const date = new Date(log.time);
-            return result.map((callback: (date: Date) => string | number) => {
-                return callback(date).toString();
-            }).join("");
+            const resultFinal = {mustExplode: true, content: []};
+            result.forEach((callback: (date: Date) => string | number) => {
+                resultFinal.content.push(callback(date).toString());
+            });
+            return resultFinal;
         };
     }
 
@@ -243,6 +245,12 @@ export class TextFormatter {
             str = char + str;
         }
         return str;
+    }
+
+    private static addFormatterDateText(text: string): () => string {
+        return () => {
+            return text;
+        };
     }
 
     private static addFormatterDateYear1(): (date: Date) => string | number {
@@ -320,6 +328,14 @@ export class TextFormatter {
             return TextFormatter.setLength(date.getMilliseconds(), 3, "0");
         };
     }
+    private static addFormatterArgument(argIndex: number): (logEntry: ILogEntry) => any {
+        return (logEntry: ILogEntry) => {
+            if (logEntry.args.length <= argIndex) {
+                return "<ARGUMENT NUMBER " + argIndex + " NOT EXISTS!";
+            }
+            return logEntry.args[argIndex];
+        };
+    }
 
     private static getSameLetters(text: string, currentIndex: number): number {
         const currentLetter = text[currentIndex];
@@ -330,35 +346,45 @@ export class TextFormatter {
         return nbLetters;
     }
 
-    private static calculateMessage(text: string, params: any[]): string {
+    private static calculateMessage(text: string, params: any[]): any[] {
         const errors: Error[] = [];
-        text = text.replace(/\%([0-9]+)/g, (str: string, replaceIndex: string) => {
-            const index: number = Number(replaceIndex);
+        const result = [];
+        let lastStartTextIndex: number = 0;
+        const regExp = /\%([0-9]+)/g;
+        let regExpResult: RegExpExecArray = null;
+        // tslint:disable-next-line:no-conditional-assignment
+        while (regExpResult = regExp.exec(text)) {
+            result.push(text.substring(lastStartTextIndex, regExpResult.index));
+            lastStartTextIndex = regExpResult.index + regExpResult[0].length;
+            const index: number = Number(regExpResult[1]);
             const e = params[index - 1];
             if (e instanceof Error) {
                 errors.push(e);
-            } else if (typeof e === "object") {
-                try {
-                    return JSON.stringify(e);
-                } catch (e) {
-                    return "<Object not stringifiable!>";
-                }
             }
-            return e;
-        });
-        errors.forEach((e: Error) => {
-            text += "\r\n" + e.stack;
-        });
-        return text;
+            result.push(e);
+        }
+        if (lastStartTextIndex < text.length) {
+            result.push(text.substring(lastStartTextIndex));
+        }
+        errors.forEach((e) => result.push(e));
+        return result;
     }
 
-    private constructor(private functions: Array<(logEntry: ILogEntry) => string>) {
+    private constructor(private functions: Array<(logEntry: ILogEntry) => {mustExplode: boolean, content: any}>) {
 
     }
 
-    public format(logEntry: ILogEntry): string {
-        return this.functions.map((callback: (logEntry: ILogEntry) => string) => {
-            return callback(logEntry).toString();
-        }).join("");
+    public format(logEntry: ILogEntry): any[] {
+        const results = [];
+        this.functions.forEach((callback: (logEntry: ILogEntry) => {mustExplode: boolean, content: any}) => {
+            const result = callback(logEntry);
+            if (result.mustExplode) {
+                (result.content as any[]).forEach((e) => results.push(e));
+            } else {
+                results.push(result.content);
+            }
+            return result;
+        });
+        return results;
     }
 }
