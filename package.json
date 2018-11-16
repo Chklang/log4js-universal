@@ -6,7 +6,7 @@
   "typings": "./lib/index",
   "scripts": {
     "build": "tsc --p tsconfig.build.json",
-    "dist": "npm run test && npm run build && copyfiles package.json README.md dist/",
+    "dist": "npm run test && npm run build && copyfiles package.json README.md .npmrc dist/",
     "dist:dev": "npm run dist && cd dist && npm link",
     "test": "node node_modules/karma/bin/karma start --single-run",
     "lint": "tslint -c tslint.json \"src/**/*.ts\""
