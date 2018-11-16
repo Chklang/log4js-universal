@@ -54,10 +54,8 @@ export class Logger implements ILogger {
                 continue;
             }
             if (precisionMaxLevelFound === null || precisionMaxLevelFound < currentPrecision) {
-                if (levelMaxFound === null || LoggerHelper.levelPass(configuration.categories[key].level, levelMaxFound)) {
-                    levelMaxFound = configuration.categories[key].level;
-                    precisionMaxLevelFound = currentPrecision;
-                }
+                levelMaxFound = configuration.categories[key].level;
+                precisionMaxLevelFound = currentPrecision;
             }
             configuration.categories[key].appenders.forEach((appenderName: string) => {
                 if (!levelByAppendersFound[appenderName]) {

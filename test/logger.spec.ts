@@ -41,7 +41,7 @@ export class ConsoleAppenderTest extends ConsoleAppender {
         }
     }
 }
-describe("Check global logger", () => {
+describe("Check global logger - General logging", () => {
 
     beforeEach(() => {
         LoggerFactory.registerAppender("CONSOLE_TEST", ConsoleAppenderTest);
@@ -112,5 +112,66 @@ describe("Check global logger", () => {
 
     it("Check debug log", () => {
         testLevel(ELevel.DEBUG);
+    });
+});
+
+describe("Check global logger - misc", () => {
+    it("When i define a subpackage whith lower log level, i don't log messages", () => {
+        LoggerFactory.registerAppender("CONSOLE_TEST", ConsoleAppenderTest);
+        LoggerFactory.INSTANCE.configuration = {
+            appenders: {
+                CONSOLE_TEST: {
+                    className: "CONSOLE_TEST",
+                    level: ELevel.DEBUG,
+                    options: {}
+                }
+            },
+            categories: {
+                "*": {
+                    appenders: ["CONSOLE_TEST"],
+                    level: ELevel.DEBUG
+                },
+                "subpackage": {
+                    appenders: ["CONSOLE_TEST"],
+                    level: ELevel.INFO
+                },
+                "subpackage.toto.titi": {
+                    appenders: ["CONSOLE_TEST"],
+                    level: ELevel.ERROR
+                }
+            }
+        };
+
+        const loggerTest: ILogger = LoggerFactory.getLogger("logger.test");
+        const loggerSubpackage: ILogger = LoggerFactory.getLogger("subpackage.test");
+        const loggerSubpackageTotoTiti: ILogger = LoggerFactory.getLogger("subpackage.toto.titi");
+
+        ConsoleAppenderTest.reset();
+        loggerTest.debug("Test message");
+        expect(ConsoleAppenderTest.messages.length).toBe(1, "Check if message from LOGGERTest is logged when debug");
+
+        ConsoleAppenderTest.reset();
+        loggerSubpackage.debug("Test message");
+        expect(ConsoleAppenderTest.messages.length).toBe(0, "Check if message from LOGGERSubpackage is logged when debug");
+
+        ConsoleAppenderTest.reset();
+        loggerSubpackageTotoTiti.debug("Test message");
+        expect(ConsoleAppenderTest.messages.length).toBe(0, "Check if message from LOGGERSubpackageTotoTiti is logged when debug");
+
+        ConsoleAppenderTest.reset();
+        loggerSubpackage.info("Test message");
+        expect(ConsoleAppenderTest.messages.length).toBe(1, "Check if message from LOGGERSubpackage is logged when info");
+
+        ConsoleAppenderTest.reset();
+        loggerSubpackageTotoTiti.info("Test message");
+        expect(ConsoleAppenderTest.messages.length).toBe(0, "Check if message from LOGGERSubpackageTotoTiti is logged when info");
+
+        ConsoleAppenderTest.reset();
+        loggerSubpackageTotoTiti.warn("Test message");
+        expect(ConsoleAppenderTest.messages.length).toBe(0, "Check if message from LOGGERSubpackageTotoTiti is logged when warn");
+
+        ConsoleAppenderTest.reset();
+        loggerSubpackageTotoTiti.error("Test message");
+        expect(ConsoleAppenderTest.messages.length).toBe(1, "Check if message from LOGGERSubpackageTotoTiti is logged when error");
     });
 });
