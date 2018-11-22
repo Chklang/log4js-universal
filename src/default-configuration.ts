@@ -10,7 +10,7 @@ export const DEFAULT_CONFIGURATION: IConfiguration = {
     appenders: appenders,
     categories: {
         "*": {
-            level: ELevel.INFO,
+            level: ELevel.ERROR,
             appenders: ["CONSOLE"]
         }
     }
